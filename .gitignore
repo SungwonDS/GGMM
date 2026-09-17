@@ -1,0 +1,13 @@
+# Python and Jupyter caches
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Local experiment caches and generated results
+ggmm_result.pkl
+ggmm_simple_bic_results/
+ggmm_kde_three_kernel_results/
+ggmm_simple_bic_results.zip
+
+# Local presentation build products
+presentation.*
