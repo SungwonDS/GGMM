@@ -6,7 +6,9 @@ maximum likelihood, not a variational Bayesian GGMM or guaranteed global MLE.
 """
 from dataclasses import dataclass, asdict
 from time import perf_counter
+from typing import cast
 import numpy as np
+from numpy.typing import ArrayLike
 from scipy.optimize import minimize, brentq
 from scipy.special import gammaln, digamma, logsumexp
 from scipy.stats import gennorm
@@ -21,12 +23,19 @@ class GGMMBICConfig:
     gtol: float = 1e-5
 
 
-@dataclass
+@dataclass(init=False)
 class Mixture:
     weights: np.ndarray
     means: np.ndarray
     scales: np.ndarray
     shapes: np.ndarray
+
+    def __init__(self, weights: ArrayLike, means: ArrayLike, scales: ArrayLike, shapes: ArrayLike):
+        self.weights = np.asarray(weights, dtype=float)
+        self.means = np.asarray(means, dtype=float)
+        self.scales = np.asarray(scales, dtype=float)
+        self.shapes = np.asarray(shapes, dtype=float)
+        self.__post_init__()
 
     def __post_init__(self):
         for name in ('weights', 'means', 'scales', 'shapes'):
@@ -56,14 +65,16 @@ class Mixture:
                                np.log(self.scales), np.log(self.shapes))[0]
 
     def logpdf(self, x):
-        return logsumexp(self.component_logpdf(x) + np.log(self.weights), axis=1)
+        return cast(np.ndarray, logsumexp(self.component_logpdf(x) + np.log(self.weights), axis=1))
 
     def pdf(self, x):
         return np.exp(self.logpdf(x))
 
     def cdf(self, x):
-        return (gennorm.cdf(np.asarray(x).reshape(-1, 1), self.shapes,
-                            loc=self.means, scale=self.scales) * self.weights).sum(axis=1)
+        # The power may overflow in distant tails; the limiting CDF is 0 or 1.
+        with np.errstate(over='ignore'):
+            return (gennorm.cdf(np.asarray(x).reshape(-1, 1), self.shapes,
+                                loc=self.means, scale=self.scales) * self.weights).sum(axis=1)
 
     def component_ppf(self, p, labels):
         labels = np.asarray(labels, int)
@@ -82,7 +93,7 @@ class Mixture:
 
 def unpack(theta, k):
     logits = np.r_[theta[:k-1], 0.]
-    lw = logits - logsumexp(logits)
+    lw = logits - cast(float, logsumexp(logits))
     return lw, theta[k-1:2*k-1], theta[2*k-1:3*k-1], theta[3*k-1:]
 
 
@@ -119,7 +130,7 @@ def nll_gradient(theta, x, k):
     lw, mu, la, eta = unpack(theta, k)
     lp, delta, lr, lt, dc = component_terms(x, mu, la, eta)
     joint = lp + lw
-    denom = logsumexp(joint, axis=1)
+    denom = cast(np.ndarray, logsumexp(joint, axis=1))
     if not np.isfinite(denom).all():
         raise FloatingPointError('Nonfinite mixture log density at an observation.')
     log_r = joint - denom[:, None]
@@ -163,7 +174,7 @@ def initial_shape(group):
         hi += 1
     if residual(lo) * residual(hi) > 0:
         return 2., True
-    return float(np.exp(brentq(residual, lo, hi))), False
+    return float(np.exp(cast(float, brentq(residual, lo, hi)))), False
 
 
 def initializations(x, k, floor):
@@ -186,6 +197,7 @@ def initializations(x, k, floor):
             break
         labels = new
         centers = np.array([x[labels == j].mean() for j in range(k)])
+    assert labels is not None
     partitions = [('quantile', quantile)]
     if not np.array_equal(labels, quantile):
         partitions.append(('lloyd', labels))
@@ -205,6 +217,9 @@ class GGMMBICEstimator:
         self.config = config or GGMMBICConfig()
 
     def fit(self, X):
+        # Reusing this estimator must never expose a previous selected density
+        # after an invalid or interrupted fit.
+        self.__dict__ = {'config': self.config, 'fit_status_': 'running'}
         cfg = self.config
         x = np.asarray(X, float)
         if x.ndim == 2 and x.shape[1] == 1:
@@ -230,7 +245,11 @@ class GGMMBICEstimator:
             tick = perf_counter()
             bounds = [(None, None)]*(2*k-1) + [(np.log(cfg.scale_floor_relative), None)]*k + [(None, None)]*k
             candidates = []
-            for name, initial, fallback_count in initializations(z, k, cfg.scale_floor_relative):
+            init_tick = perf_counter()
+            starts = list(initializations(z, k, cfg.scale_floor_relative))
+            initialization_seconds = perf_counter()-init_tick
+            for name, initial, fallback_count in starts:
+                start_tick = perf_counter()
                 best = [np.inf, None]
                 rejected = [0]
                 def objective(theta):
@@ -244,12 +263,17 @@ class GGMMBICEstimator:
                         return np.inf, np.zeros_like(theta)
                 theta0 = pack(initial)
                 objective(theta0)
+                optimize_tick = perf_counter()
                 opt = minimize(objective, theta0, jac=True, method='L-BFGS-B', bounds=bounds,
                                options=dict(maxiter=cfg.max_iter, ftol=cfg.ftol, gtol=cfg.gtol, maxls=50))
+                optimize_seconds = perf_counter()-optimize_tick
+                timing = dict(optimization_seconds=optimize_seconds,
+                              nfev=int(getattr(opt, 'nfev', -1)))
                 theta = best[1]
                 if theta is None:
                     self.starts_.append(dict(K=k, start=name, finite=False, converged=False,
-                                             message='No finite likelihood', rejected_steps=rejected[0]))
+                        message='No finite likelihood', rejected_steps=rejected[0],
+                        seconds=perf_counter()-start_tick, **timing))
                     continue
                 value, grad = nll_gradient(theta, z, k)
                 # Returning the best visited point avoids discarding a better finite trial.
@@ -265,7 +289,8 @@ class GGMMBICEstimator:
                                     (self.unit_*np.exp(la))[order], np.exp(eta)[order])
                 except ValueError as exc:
                     self.starts_.append(dict(K=k, start=name, finite=False, converged=False,
-                        message=f'Unrepresentable final mixture: {exc}', rejected_steps=rejected[0]))
+                        message=f'Unrepresentable final mixture: {exc}', rejected_steps=rejected[0],
+                        seconds=perf_counter()-start_tick, **timing))
                     continue
                 ll = float(-len(z)*(value+np.log(self.unit_)))
                 row = dict(K=k, start=name, finite=True, log_likelihood=ll,
@@ -277,14 +302,18 @@ class GGMMBICEstimator:
                            a_floor_hits=int(np.sum(model.scales <= self.a_min_*(1+1e-6))),
                            max_b=float(model.shapes.max()), min_b=float(model.shapes.min()),
                            nonsmooth_coincidences=int(np.sum((z[:, None] == mu) & (np.exp(eta) <= 1))))
+                row.update(seconds=perf_counter()-start_tick, **timing)
                 self.starts_.append(row)
                 candidates.append((row, model))
             if not candidates:
-                self.selection_.append(dict(K=k, finite=False, converged=False, BIC=np.inf))
+                self.selection_.append(dict(K=k, finite=False, converged=False, BIC=np.inf,
+                    log_likelihood=np.nan, seconds=perf_counter()-tick,
+                    initialization_seconds=initialization_seconds, starts_count=len(starts)))
                 continue
             row, model = min(candidates, key=lambda item: item[0]['BIC'])
             row = row.copy()
             row.update(seconds=perf_counter()-tick,
+                       initialization_seconds=initialization_seconds, starts_count=len(starts),
                        likelihood_decreased=bool(row['log_likelihood'] < previous_ll-1e-5))
             previous_ll = max(previous_ll, row['log_likelihood'])
             self.models_[k] = model
@@ -299,16 +328,18 @@ class GGMMBICEstimator:
             r['delta_BIC'] = r['BIC']-winner['BIC']
             r['selected'] = r['K'] == self.n_components_
         self.diagnostics_ = dict(n=len(x), selected_K=self.n_components_, config=asdict(cfg),
+            effective_Kmax=upper,
             scale_floor_original_units=self.a_min_, selected_converged=winner['converged'],
             any_K_nonconverged=any(not r['converged'] for r in self.selection_),
             any_likelihood_decrease=any(r.get('likelihood_decreased',False) for r in self.selection_),
             selected_at_Kmax=self.n_components_ == upper,
             status='numerical_local_fit; no global optimum or true-K guarantee', seconds=perf_counter()-start)
+        self.fit_status_ = 'complete'
         return self
 
     def predict_proba(self, X):
         joint = self.density_.component_logpdf(X) + np.log(self.density_.weights)
-        denominator = logsumexp(joint, axis=1)
+        denominator = cast(np.ndarray, logsumexp(joint, axis=1))
         if not np.isfinite(denominator).all():
             raise FloatingPointError('Posterior probabilities cannot be represented for these values.')
         return np.exp(joint-denominator[:, None])
