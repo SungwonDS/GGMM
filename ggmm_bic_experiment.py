@@ -5,6 +5,7 @@ densities are normalized plug-in mixtures, including sklearn's VGM comparator.
 """
 from dataclasses import asdict, replace
 from datetime import datetime, timezone
+from importlib.metadata import version as package_version
 from time import perf_counter
 from typing import Any, TypedDict, cast
 import platform
@@ -115,7 +116,12 @@ def fit_vgm(x, max_components=10):
         warnings.simplefilter('always')
         fitted.fit(x.reshape(-1,1))
     seconds = perf_counter()-tick
-    w,mu,a = fitted.weights_,fitted.means_[:,0],np.sqrt(2*fitted.covariances_[:,0,0])
+    # sklearn's type stubs allow ArrayLike; normalize learned values to arrays
+    # before slicing, masking or summing. This keeps the fitted numbers intact.
+    w = np.asarray(fitted.weights_, dtype=float)
+    mu = np.asarray(fitted.means_, dtype=float)[:, 0]
+    covariance = np.asarray(fitted.covariances_, dtype=float)[:, 0, 0]
+    a = np.sqrt(2*covariance)
     full = Mixture(w/w.sum(),mu,a,np.full(len(w),2.))
     mask = w > .005
     active = Mixture(w[mask]/w[mask].sum(),mu[mask],a[mask],np.full(int(mask.sum()),2.))
@@ -171,7 +177,7 @@ def run_experiment(x, *, config=None, truth=None, sample_seed=None,
             vgm_max_components=vgm_max_components, vgm_seed=VGM_SEED,
             versions=dict(python=platform.python_version(), numpy=np.__version__,
                 scipy=scipy.__version__, sklearn=sklearn.__version__,
-                pandas=pd.__version__, matplotlib=matplotlib.__version__),
+                pandas=pd.__version__, matplotlib=package_version('matplotlib')),
             timing='New GGMM fit call; includes all K and BIC; excludes reports and I/O.'))
 
 
@@ -350,8 +356,13 @@ def report_selection(result):
     scores['delta_AIC'] = scores['AIC']-scores['AIC'].min()
     show_table(scores.reindex(columns=['K', 'log_likelihood', 'LL_gain', 'AIC', 'BIC',
         'selected', 'converged', 'max_b', 'a_floor_hits', 'seconds']))
-    print('계산된 유한 후보의 선택:', {'LL 최대': int(scores.loc[scores.log_likelihood.idxmax(), 'K']),
-        'AIC 최소': int(scores.loc[scores.AIC.idxmin(), 'K']), 'BIC 최소': fit.n_components_})
+    # Select from the original numerical records; pandas Scalar also includes
+    # strings/complex values in editor type stubs even for this integer column.
+    finite = [row for row in fit.selection_ if row['finite']]
+    print('계산된 유한 후보의 선택:', {
+        'LL 최대': max(finite, key=lambda row: row['log_likelihood'])['K'],
+        'AIC 최소': min(finite, key=lambda row: -2*row['log_likelihood']+2*(4*row['K']-1))['K'],
+        'BIC 최소': fit.n_components_})
     print('미수렴 후보를 숨기지 않습니다. 현재 선택은 전역 최적해나 참 K 복원을 보장하지 않습니다.')
     boundary = search_boundary(fit.selection_)
     print('탐색 상한 진단:', boundary)
