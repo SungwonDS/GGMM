@@ -1,0 +1,3 @@
+Max_K,Start,Selected,Converged,ELBO_per_observation,Active_K,Inner_nonconverged,Stop_reason,Fit_s
+10,quantile,True,True,-2.4715477692482763,10,1,ELBO_gain_per_observation,21.30769162499928
+10,lloyd,False,True,-2.4729648965812734,9,0,ELBO_gain_per_observation,20.384708334000607
