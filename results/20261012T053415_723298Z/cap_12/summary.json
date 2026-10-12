@@ -1,0 +1,50 @@
+{
+  "config": {
+    "max_components": 12,
+    "concentration": 0.001,
+    "active_threshold": 0.005,
+    "max_iter": 300,
+    "tol": 1e-05,
+    "inner_max_iter": 30,
+    "inner_ftol": 1e-08,
+    "mean_prior_sd": 3.0,
+    "precision_prior_shape": 1.0,
+    "precision_prior_rate": 0.001,
+    "starts": [
+      "quantile",
+      "lloyd"
+    ],
+    "initial_shape_mode": "moment",
+    "enable_merge": true,
+    "max_merge_rounds": 15,
+    "max_candidates_per_round": 3,
+    "merge_gain_per_observation": 0.0001,
+    "candidate_min_effective_count": 1e-06
+  },
+  "baseline_selection_fallback": false,
+  "accepted_merges": 9,
+  "merge_stop_reason": "no_improvement_in_all_prepared_adjacent_pairs",
+  "baseline_seconds": 41.621329917004914,
+  "merge_seconds": 15.460135375004029,
+  "total_fit_seconds": 57.08153745799791,
+  "timing": {
+    "Baseline_fit_s": 41.621329917004914,
+    "Merge_extra_s": 15.460135375004029,
+    "Finalization_s": 7.216598896775395e-05,
+    "Total_fit_s": 57.08153745799791,
+    "Continuation_s": 2.7125658740260405,
+    "Pair_pool_s": 0.0013939180207671598,
+    "Seed_screening_s": 5.802435417994275,
+    "Candidate_refit_s": 6.939911291017779,
+    "Merge_management_s": 0.003828873945167288
+  },
+  "work": {
+    "Initial_starts_attempted": 2,
+    "Continuation_refits": 10,
+    "Candidate_seeds": 65,
+    "Candidate_refits": 11,
+    "Accepted_merges": 9
+  },
+  "full_slots": 12,
+  "threshold": 0.005
+}

@@ -1,0 +1,3 @@
+Start,Status,Error,Initialization_s,Optimize_wall_s,Start_wall_s
+quantile,completed,,0.0012933329999214038,9.473969875005423,9.47526704199845
+lloyd,completed,,0.00494533299934119,4.226526708007441,4.23147295799572

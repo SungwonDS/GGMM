@@ -1,0 +1,3 @@
+Method,Max_K,Baseline_fit_s,Merge_extra_s,Finalization_s,Total_fit_s,Continuation_s,Pair_pool_s,Seed_screening_s,Candidate_refit_s,Merge_management_s,Initial_starts_attempted,Continuation_refits,Candidate_seeds,Candidate_refits,Accepted_merges,Evaluation_s
+VGGMM-base+merge,13,55.13252987500164,22.320800667002914,7.158299558795989e-05,77.45340212500014,3.2636037890333682,0.0013250839983811602,6.139566206984455,12.912696707979194,0.0036088790075154975,2.0,10.0,65.0,12.0,9.0,0.06814304199360777
+VGM,13,0.24517570799798705,0.0,0.0,0.24517570799798705,,,,,,,,,,,0.04181416599021759
