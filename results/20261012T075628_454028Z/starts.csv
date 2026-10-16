@@ -1,0 +1,13 @@
+Max_K,Start,Selected,Converged,ELBO_per_observation,Active_K,Inner_nonconverged,Stop_reason,Fit_s
+10,quantile,True,True,-2.4715473939528665,10,1,ELBO_gain_per_observation,89.24104839982465
+10,lloyd,False,True,-2.4729647726184516,9,0,ELBO_gain_per_observation,67.02831069985405
+11,quantile,True,True,-2.4741611923892783,8,0,ELBO_gain_per_observation,99.58047779998742
+11,lloyd,False,True,-2.476149883900398,11,0,ELBO_gain_per_observation,62.952234299853444
+12,quantile,False,True,-2.4809812953877772,12,0,ELBO_gain_per_observation,44.40812540007755
+12,lloyd,True,True,-2.480499455571943,12,0,ELBO_gain_per_observation,122.21669659996405
+13,quantile,True,True,-2.481259020677247,11,0,ELBO_gain_per_observation,156.94942789990455
+13,lloyd,False,True,-2.483174758453897,13,0,ELBO_gain_per_observation,51.47524399985559
+14,quantile,False,True,-2.487467133031983,13,0,ELBO_gain_per_observation,132.97082460019737
+14,lloyd,True,True,-2.486925494307157,14,0,ELBO_gain_per_observation,29.847015799954534
+15,quantile,True,True,-2.4893436332372643,14,0,ELBO_gain_per_observation,76.0816234999802
+15,lloyd,False,True,-2.491822388723778,14,0,ELBO_gain_per_observation,107.94334539980628
