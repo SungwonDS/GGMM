@@ -1,0 +1,3 @@
+Round,Rank,Pair_i,Pair_j,Pair_overlap,Seed_b,Seed_errors,Seed_ELBO,Seed_wall_s,Before_ELBO,Before_active_K,Pool_size,Prepared_candidates,Accepted,Error,Refit_wall_s,After_ELBO,Gain_per_observation,After_active_K,Refit_converged,Refit_stop_reason,Refit_iterations,Inner_nonconverged,Refit_s,Status
+1,1,1,2,4.39956630878726e-05,2.0,,-15659.064735070333,0.17503729998134077,-15379.226270364907,3,2,2,False,,1.4120698999613523,-15654.99140099757,-0.055153026126532494,2,True,ELBO_gain_per_observation,10,0,1.4120636000297964,rejected
+1,2,0,1,0.2499616290398779,2.0,,-15673.651753076501,0.14307460002601147,-15379.226270364907,3,2,2,False,,0.5641006999649107,-15671.707996535524,-0.05849634523412351,2,True,ELBO_gain_per_observation,5,0,0.564089700113982,rejected

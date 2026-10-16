@@ -1,0 +1,5 @@
+Comparison,Metric,Valid_seeds,Total_seeds,Both_converged_seeds,Mean_delta,SD_delta,Left_wins,Right_wins,Ties
+VGGMM-merge minus VGM,Delta_Test_LL_per_obs,3,3,3,-0.0049988602829706226,0.0030372716218980177,0,3,0
+VGGMM-merge minus VGM,Delta_Fit_s,3,3,3,124.69454489989828,27.113846466907955,0,3,0
+VGGMM-merge minus VGGMM-base,Delta_Test_LL_per_obs,3,3,3,-0.007850395230010595,0.005765935729721567,0,3,0
+VGGMM-merge minus VGGMM-base,Delta_Fit_s,3,3,3,63.29588373339114,8.906325908715047,0,3,0

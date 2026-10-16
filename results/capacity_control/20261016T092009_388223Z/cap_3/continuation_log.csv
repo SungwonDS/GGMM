@@ -1,0 +1,2 @@
+Round,Used,Converged,Error,Wall_s,Before_ELBO,After_ELBO,Gain_per_observation,Inner_nonconverged
+1,True,True,,0.27300110016949475,-15379.240172898231,-15379.226270364907,2.7805066649307265e-06,0

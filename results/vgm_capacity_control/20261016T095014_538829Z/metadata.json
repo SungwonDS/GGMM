@@ -1,0 +1,96 @@
+{
+  "n": 5000,
+  "seed": 20260912,
+  "caps": [
+    3,
+    10
+  ],
+  "config": {
+    "max_components": 10,
+    "concentration": 0.001,
+    "active_threshold": 0.005,
+    "max_iter": 300,
+    "tol": 1e-05,
+    "inner_max_iter": 30,
+    "inner_ftol": 1e-08,
+    "mean_prior_sd": 3.0,
+    "precision_prior_shape": 1.0,
+    "precision_prior_rate": 0.001,
+    "starts": [
+      "quantile",
+      "lloyd"
+    ],
+    "initial_shape_mode": "shape2",
+    "enable_merge": true,
+    "max_merge_rounds": 15,
+    "max_candidates_per_round": 3,
+    "merge_gain_per_observation": 0.0001,
+    "candidate_min_effective_count": 1e-06
+  },
+  "vgm_n_init": 2,
+  "density_kind": "full parameter plug-in",
+  "fitting_uses_truth": false,
+  "model_sha256": "f7216b12bf5d1004e077ff2433b774762cfebf60c343076692549f3ef7d99331",
+  "references": {
+    "GGD_truth": {
+      "weights": [
+        0.1,
+        0.15,
+        0.2,
+        0.25,
+        0.3
+      ],
+      "means": [
+        -10.0,
+        -5.0,
+        0.0,
+        5.0,
+        10.0
+      ],
+      "scales": [
+        1.2,
+        1.4,
+        1.6,
+        1.8,
+        2.0
+      ],
+      "shapes": [
+        1.5,
+        2.0,
+        4.0,
+        6.0,
+        8.0
+      ]
+    },
+    "Gaussian_control": {
+      "weights": [
+        0.1,
+        0.15,
+        0.2,
+        0.25,
+        0.3
+      ],
+      "means": [
+        -10.0,
+        -5.0,
+        0.0,
+        5.0,
+        10.0
+      ],
+      "scales": [
+        1.4583709272576533,
+        1.4000000000000001,
+        1.3154863338599339,
+        1.4364517482986463,
+        1.5865289557251827
+      ],
+      "shapes": [
+        2.0,
+        2.0,
+        2.0,
+        2.0,
+        2.0
+      ]
+    }
+  }
+}

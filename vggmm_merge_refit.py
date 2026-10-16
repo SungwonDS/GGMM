@@ -1,4 +1,3 @@
-# %% Complete algorithm: execute this ONE cell in a fresh kernel.
 """Self-contained one-dimensional variational GGMM with merge/refit.
 
 Only NumPy, SciPy and the standard library are required. All definitions used by
@@ -6,7 +5,7 @@ fit are in this file; no earlier notebook cell, project file or experiment is
 imported. Importing this module never samples data, fits a model or writes files.
 
 Inference: q(v)=Beta, q(z)=categorical, q(mu)=Normal, q(tau)=Gamma;
-tau=a**(-b), b is a free positive point estimate. Default b starts at 2.
+tau=a**(-b), b is a free positive point estimate. Default b starts at 2 in both initial fits and merge proposals; b remains free.
 Merge proposals preserve Kmax, stick order and priors; all slots are refitted.
 Exported densities use posterior parameter plug-ins, not posterior integration.
 This is an independent truncated-DP implementation, not an exact reproduction
@@ -27,7 +26,12 @@ __all__ = ["Mixture", "VGGMMConfig", "VariationalGGMM"]
 
 @dataclass(frozen=True)
 class VGGMMConfig:
-    """Priors and optimization settings; shape2 initializes but does not fix b."""
+    """Priors and optimization settings.
+
+    shape2 uses b=2 for both initial components and merged-component seeds.
+    Subsequent optimization estimates b freely. moment remains available for
+    older explicit configurations; the supplied experiments all use shape2.
+    """
     max_components: int = 10
     concentration: float = .001
     active_threshold: float = .005
@@ -412,7 +416,8 @@ class VariationalGGMM:
         variance = float(np.dot(pooled, (x-mean)**2)/nk)
         posterior_sd = np.sqrt(max(variance, np.finfo(float).eps)/max(nk, 1.))
         # Shape seeds affect only proposal initialization. The fitted shape stays free.
-        shapes = np.unique(np.r_[2., parents])
+        shapes = (np.array([2.]) if self.config.initial_shape_mode == "shape2"
+                  else np.unique(np.r_[2., parents]))
         best, seed_failures = None, []
         for b in shapes:
             y0 = np.array([mean, np.log(posterior_sd), np.log(b)])

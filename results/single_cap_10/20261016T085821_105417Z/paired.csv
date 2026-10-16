@@ -1,0 +1,2 @@
+Max_K,Base_active_K,Merge_active_K,Base_IAE,Merge_IAE,Base_ISE,Merge_ISE,Total_delta_ELBO_per_observation,Accepted_merge_ELBO_gain_per_observation,Continuation_ELBO_gain_per_observation,Accepted_merges,Merge_stop_reason,BaseFit_s,MergeExtra_s,TotalFit_s
+10,10,3,0.0593075501725983,0.029280224594565495,0.0004961759310167501,9.318116784840153e-05,0.01687180842944036,0.016776467188950484,9.534124049023377e-05,7,no_improvement_in_all_prepared_adjacent_pairs,135.292220500065,34.64959509996697,169.94222600013018
