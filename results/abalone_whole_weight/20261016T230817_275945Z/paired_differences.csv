@@ -1,0 +1,7 @@
+Study,Seed,Comparison,Both_evaluated,Both_converged,Delta_Test_LL_per_obs,Delta_Fit_s
+abalone_whole_weight,20260912,VGGMM-merge minus VGM,True,True,-0.008437479877696052,37.73283158201957
+abalone_whole_weight,20260912,VGGMM-merge minus VGGMM-base,True,True,-0.013822269021510514,17.587050415982958
+abalone_whole_weight,20260913,VGGMM-merge minus VGM,True,True,-0.0038769957118632847,25.336363542010076
+abalone_whole_weight,20260913,VGGMM-merge minus VGGMM-base,True,True,-0.007416085398828098,13.016519583994523
+abalone_whole_weight,20260914,VGGMM-merge minus VGM,True,True,-0.002684316929235875,25.89385279198177
+abalone_whole_weight,20260914,VGGMM-merge minus VGGMM-base,True,True,-0.0023161262329047805,15.759725832962431

@@ -1,0 +1,310 @@
+{
+  "study_id": "heterogeneous_mixture",
+  "seeds": [
+    20260912,
+    20260913,
+    20260914
+  ],
+  "config": {
+    "max_components": 10,
+    "concentration": 0.001,
+    "active_threshold": 0.005,
+    "max_iter": 300,
+    "tol": 1e-05,
+    "inner_max_iter": 30,
+    "inner_ftol": 1e-08,
+    "mean_prior_sd": 3.0,
+    "precision_prior_shape": 1.0,
+    "precision_prior_rate": 0.001,
+    "starts": [
+      "quantile",
+      "lloyd"
+    ],
+    "initial_shape_mode": "shape2",
+    "enable_merge": true,
+    "max_merge_rounds": 15,
+    "max_candidates_per_round": 3,
+    "merge_gain_per_observation": 0.0001,
+    "candidate_min_effective_count": 1e-06
+  },
+  "vgm_settings": {
+    "n_components": 10,
+    "covariance_type": "full",
+    "weight_concentration_prior_type": "dirichlet_process",
+    "weight_concentration_prior": 0.001,
+    "init_params": "kmeans",
+    "n_init": 2,
+    "max_iter": 1500,
+    "tol": 0.001,
+    "reg_covar": 1e-06,
+    "random_state": 27
+  },
+  "density_kind": "full posterior-parameter plug-in density",
+  "primary_metrics": "heldout mean log density; synthetic IAE/ISE",
+  "versions": {
+    "python": "3.14.7",
+    "numpy": "2.5.3",
+    "scipy": "1.18.1",
+    "pandas": "3.0.5",
+    "matplotlib": "3.11.2",
+    "scikit-learn": "1.9.1"
+  },
+  "model_sha256": "8013bbecd24f18777abb440dd2253c95a30ffd2d675e7d54c08079359eb8838f",
+  "actual_fit_s": 136.84129912406206,
+  "fit_evaluate_save_wall_s": 137.42935225000838,
+  "cases": [
+    {
+      "seed": 20260912,
+      "metadata": {
+        "train_seed": 20260912,
+        "test_seed": 20261912,
+        "reference": {
+          "weights": [
+            0.2,
+            0.25,
+            0.25,
+            0.3
+          ],
+          "generating_components": 4,
+          "families": [
+            "Gaussian",
+            "Laplace",
+            "Student-t",
+            "skew-normal"
+          ],
+          "parameters": [
+            {
+              "loc": -7.0,
+              "scale": 0.9
+            },
+            {
+              "loc": -2.0,
+              "scale": 0.7
+            },
+            {
+              "df": 5,
+              "loc": 4.0,
+              "scale": 1.0
+            },
+            {
+              "a": 6.0,
+              "loc": 9.0,
+              "scale": 1.5
+            }
+          ]
+        }
+      },
+      "diagnostics": {
+        "timing": {
+          "Baseline_fit_s": 38.02427916700253,
+          "Merge_extra_s": 15.407040500023868,
+          "Finalization_s": 9.029096690937877e-05,
+          "Total_fit_s": 53.43140995799331,
+          "Continuation_s": 1.5663713329704478,
+          "Pair_pool_s": 0.0006395000382326543,
+          "Seed_screening_s": 0.9502111650654115,
+          "Candidate_refit_s": 12.888104541983921,
+          "Merge_management_s": 0.0017139599658548832
+        },
+        "work": {
+          "Initial_starts_attempted": 2,
+          "Continuation_refits": 5,
+          "Candidate_seeds": 35,
+          "Candidate_refits": 8,
+          "Accepted_merges": 4
+        },
+        "initial_start_timing": [
+          {
+            "Start": "quantile",
+            "Status": "completed",
+            "Error": "",
+            "Initialization_s": 0.0014939170214347541,
+            "Optimize_wall_s": 16.820509083976503,
+            "Start_wall_s": 16.822003874985967
+          },
+          {
+            "Start": "lloyd",
+            "Status": "completed",
+            "Error": "",
+            "Initialization_s": 0.008523666008841246,
+            "Optimize_wall_s": 21.193442082963884,
+            "Start_wall_s": 21.201966665976215
+          }
+        ],
+        "failed_starts": [],
+        "warnings": [],
+        "baseline_selection_fallback": false,
+        "merge_stop_reason": "candidate_budget_exhausted_without_improvement"
+      }
+    },
+    {
+      "seed": 20260913,
+      "metadata": {
+        "train_seed": 20260913,
+        "test_seed": 20261913,
+        "reference": {
+          "weights": [
+            0.2,
+            0.25,
+            0.25,
+            0.3
+          ],
+          "generating_components": 4,
+          "families": [
+            "Gaussian",
+            "Laplace",
+            "Student-t",
+            "skew-normal"
+          ],
+          "parameters": [
+            {
+              "loc": -7.0,
+              "scale": 0.9
+            },
+            {
+              "loc": -2.0,
+              "scale": 0.7
+            },
+            {
+              "df": 5,
+              "loc": 4.0,
+              "scale": 1.0
+            },
+            {
+              "a": 6.0,
+              "loc": 9.0,
+              "scale": 1.5
+            }
+          ]
+        }
+      },
+      "diagnostics": {
+        "timing": {
+          "Baseline_fit_s": 24.507577250013128,
+          "Merge_extra_s": 15.816920000012033,
+          "Finalization_s": 7.566699059680104e-05,
+          "Total_fit_s": 40.32457291701576,
+          "Continuation_s": 1.83785291708773,
+          "Pair_pool_s": 0.0007296259864233434,
+          "Seed_screening_s": 1.163129165128339,
+          "Candidate_refit_s": 12.813119040918536,
+          "Merge_management_s": 0.0020892508910037577
+        },
+        "work": {
+          "Initial_starts_attempted": 2,
+          "Continuation_refits": 6,
+          "Candidate_seeds": 39,
+          "Candidate_refits": 9,
+          "Accepted_merges": 5
+        },
+        "initial_start_timing": [
+          {
+            "Start": "quantile",
+            "Status": "completed",
+            "Error": "",
+            "Initialization_s": 0.003779833030421287,
+            "Optimize_wall_s": 12.215757541998755,
+            "Start_wall_s": 12.219538583012763
+          },
+          {
+            "Start": "lloyd",
+            "Status": "completed",
+            "Error": "",
+            "Initialization_s": 0.006847332988400012,
+            "Optimize_wall_s": 12.280575790966395,
+            "Start_wall_s": 12.287424165988341
+          }
+        ],
+        "failed_starts": [],
+        "warnings": [],
+        "baseline_selection_fallback": false,
+        "merge_stop_reason": "candidate_budget_exhausted_without_improvement"
+      }
+    },
+    {
+      "seed": 20260914,
+      "metadata": {
+        "train_seed": 20260914,
+        "test_seed": 20261914,
+        "reference": {
+          "weights": [
+            0.2,
+            0.25,
+            0.25,
+            0.3
+          ],
+          "generating_components": 4,
+          "families": [
+            "Gaussian",
+            "Laplace",
+            "Student-t",
+            "skew-normal"
+          ],
+          "parameters": [
+            {
+              "loc": -7.0,
+              "scale": 0.9
+            },
+            {
+              "loc": -2.0,
+              "scale": 0.7
+            },
+            {
+              "df": 5,
+              "loc": 4.0,
+              "scale": 1.0
+            },
+            {
+              "a": 6.0,
+              "loc": 9.0,
+              "scale": 1.5
+            }
+          ]
+        }
+      },
+      "diagnostics": {
+        "timing": {
+          "Baseline_fit_s": 18.891219957964495,
+          "Merge_extra_s": 22.18295724998461,
+          "Finalization_s": 7.733306847512722e-05,
+          "Total_fit_s": 41.07425454101758,
+          "Continuation_s": 1.6369642509380355,
+          "Pair_pool_s": 0.0006396250682882965,
+          "Seed_screening_s": 1.0151001263875514,
+          "Candidate_refit_s": 19.52838162489934,
+          "Merge_management_s": 0.0018716226913966238
+        },
+        "work": {
+          "Initial_starts_attempted": 2,
+          "Continuation_refits": 5,
+          "Candidate_seeds": 35,
+          "Candidate_refits": 10,
+          "Accepted_merges": 4
+        },
+        "initial_start_timing": [
+          {
+            "Start": "quantile",
+            "Status": "completed",
+            "Error": "",
+            "Initialization_s": 0.001433999976143241,
+            "Optimize_wall_s": 10.424804957991,
+            "Start_wall_s": 10.426240040978882
+          },
+          {
+            "Start": "lloyd",
+            "Status": "completed",
+            "Error": "",
+            "Initialization_s": 0.005499417020473629,
+            "Optimize_wall_s": 8.459184332983568,
+            "Start_wall_s": 8.464684833015781
+          }
+        ],
+        "failed_starts": [],
+        "warnings": [],
+        "baseline_selection_fallback": false,
+        "merge_stop_reason": "candidate_budget_exhausted_without_improvement"
+      }
+    }
+  ],
+  "total_study_wall_s": 138.21159391698893
+}

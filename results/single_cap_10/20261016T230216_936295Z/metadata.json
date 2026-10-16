@@ -1,0 +1,68 @@
+{
+  "experiment": "single_cap_10",
+  "n": 5000,
+  "caps": [
+    10
+  ],
+  "config": {
+    "max_components": 10,
+    "concentration": 0.001,
+    "active_threshold": 0.005,
+    "max_iter": 300,
+    "tol": 1e-05,
+    "inner_max_iter": 30,
+    "inner_ftol": 1e-08,
+    "mean_prior_sd": 3.0,
+    "precision_prior_shape": 1.0,
+    "precision_prior_rate": 0.001,
+    "starts": [
+      "quantile",
+      "lloyd"
+    ],
+    "initial_shape_mode": "shape2",
+    "enable_merge": true,
+    "max_merge_rounds": 15,
+    "max_candidates_per_round": 3,
+    "merge_gain_per_observation": 0.0001,
+    "candidate_min_effective_count": 1e-06
+  },
+  "truth": {
+    "weights": [
+      0.2,
+      0.3,
+      0.5
+    ],
+    "means": [
+      -5.0,
+      0.0,
+      6.0
+    ],
+    "scales": [
+      1.2,
+      1.6,
+      2.0
+    ],
+    "shapes": [
+      1.5,
+      4.0,
+      8.0
+    ]
+  },
+  "sample_sha256": "d56e51240c073c393677ea22b48e41d0dbc8e8036fe2c19fd890f4086b19bdf5",
+  "model_file": "vggmm_merge_refit.py",
+  "model_sha256": "8013bbecd24f18777abb440dd2253c95a30ffd2d675e7d54c08079359eb8838f",
+  "helper_sha256": "1b167b2401ab34010733aae223897ac2e690c9adf30f69e1e647b75d271409e1",
+  "initialization": "initial components and merged-component seeds start at b=2; b stays free",
+  "fitting_uses_truth": false,
+  "density_kind": "active parameter plug-in; full scores also reported",
+  "timing": "merge total includes baseline; evaluation and plotting are separate",
+  "versions": {
+    "python": "3.14.7",
+    "numpy": "2.5.3",
+    "scipy": "1.18.1",
+    "pandas": "3.0.5",
+    "matplotlib": "3.11.2",
+    "scikit-learn": "1.9.1",
+    "threadpoolctl": "3.7.0"
+  }
+}
