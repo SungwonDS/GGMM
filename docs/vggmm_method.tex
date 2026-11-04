@@ -1,0 +1,431 @@
+% vggmm_method.tex -- 변분 GGMM 전처리 방법론 설명문
+% 컴파일: XeLaTeX (Overleaf: Menu -> Compiler -> XeLaTeX)
+\documentclass[11pt]{article}
+\usepackage{kotex}
+\usepackage[a4paper,margin=25mm]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs,array}
+
+\newtheorem{proposition}{명제}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Ga}{\mathrm{Gamma}}
+\newcommand{\Be}{\mathrm{Beta}}
+\renewcommand{\arraystretch}{1.25}
+\setlength{\parskip}{4pt}
+
+\title{변분 일반화 정규 혼합모형(VGGMM)을 이용한\\ 첨도 인식 모드별 정규화: 방법 설명}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+%======================================================================
+\section{요약과 기여}
+
+CTGAN은 연속형 열을 신경망에 넣기 전에 \emph{모드별 정규화}를 한다. 열마다 Bayesian Gaussian Mixture(BGM)를 적합하고, 각 값을 ``어느 성분에서 왔는가''(범주)와 ``그 성분 안에서 어디쯤인가''(연속값)로 나눈다.
+이 문서는 BGM의 Gaussian 성분을 \emph{일반화 정규분포}(Generalized Gaussian Distribution, GGD)로 바꾼 변분 추론 알고리즘(이하 VGGMM)을 설명한다. GGD는 형상 모수 $\beta$로 첨도를 조절한다.
+
+이 연구에서 쓰는 수학적·데이터과학적 기법은 다음과 같다.
+\begin{enumerate}
+  \item GGD 성분 혼합모형. 형상 모수 $\beta$와 첨도는 1:1로 대응한다(식~\eqref{eq:kurt}).
+  \item 디리클레 과정(DP)의 stick-breaking 사전. 성분 가중치를 정하고, 불필요한 성분의 가중치를 0으로 보낸다.
+  \item 척도의 재매개화 $\tau=\alpha^{-\beta}$. 이렇게 두면 Gamma 사전이 켤레가 되어 $q(\tau)$를 닫힌꼴로 갱신할 수 있다.
+  \item 평균장 변분 추론(좌표 상승, CAVI)과 증거하한(ELBO). 위치 $\mu$와 형상 $\beta$는 점추정한다(VB-EM).
+  \item 성분별 축약 목적함수 $F_k(\mu,\beta)$. $\tau$를 적분해서 얻으며, $\mu$와 $\beta$를 1차원 탐색으로 갱신해도 ELBO가 줄지 않음을 보장한다.
+  \item $\beta$에 따라 의미가 바뀌지 않는 척도 사전 $b_0(\beta)=a_0c^{\beta}$.
+  \item ELBO로 검증하는 구조 이동(병합·삭제·재정렬). 국소 최적에서 벗어나게 해서, 성분 수가 $K_{\max}$에 끌려가지 않고 데이터로 정해지게 한다.
+  \item 분위수 기반 정규화 폭 $h_k$. 기존 $4\sigma$ 규칙을 일반화한 것으로, $\beta=2$이면 $3.89\sigma$가 된다.
+  \item 정수형 열의 디퀀타이즈(dequantization).
+  \item 검증 장치: $\beta=2$로 고정하면 sklearn BGM과 같은 갱신이 됨을 보이는 명제(명제~\ref{prop:bgm}).
+\end{enumerate}
+
+%======================================================================
+\section{배경: BGM 모드별 정규화와 그 한계}
+
+CTGAN의 전처리(rdt \texttt{ClusterBasedNormalizer})는 다음 순서로 동작한다.
+\begin{enumerate}
+  \item 열 하나에 $K_{\max}=10$인 BGM을 적합한다. 가중치 사전은 DP stick-breaking이고 집중 모수는 $\gamma=0.001$이다.
+  \item 가중치가 $0.005$보다 큰 성분을 ``유효''로 표시한다.
+  \item 각 값 $x$에 대해 사후확률에 따라 성분 $k$를 하나 뽑고, $u=(x-\mu_k)/(4\sigma_k)$를 계산한 뒤 $\pm 0.99$에서 자른다.
+  \item 출력은 $(u,\ \text{one-hot}(k))$이다. 생성기는 $u$를 \texttt{tanh}로, $k$를 \texttt{softmax}로 만든다.
+\end{enumerate}
+
+이 방식에는 세 가지 한계가 있다.
+\begin{itemize}
+  \item \textbf{Gaussian 가정.} 꼬리가 두껍거나(첨도가 큼) 윗부분이 평평한(첨도가 작음) 봉우리를 Gaussian 여러 개를 겹쳐 흉내 낸다. 그래서 성분 수가 늘고 밀도 추정도 부정확해진다.
+  \item \textbf{$4\sigma$ 폭.} ``99.99\%가 $[-1,1]$ 안에 든다''는 기준은 Gaussian에서만 맞다. 꼬리가 두꺼우면 많이 잘리고, 평평하면 \texttt{tanh} 구간을 낭비한다.
+  \item \textbf{성분 수.} 관측해 보면 BGM의 유효 성분 수는 $K_{\max}$를 늘릴수록 같이 늘어난다(\S\ref{sec:evidence}).
+\end{itemize}
+
+%======================================================================
+\section{모형}
+
+\subsection{일반화 정규분포(GGD)와 첨도}
+위치 $\mu$, 척도 $\alpha>0$, 형상 $\beta>0$인 GGD의 밀도는 다음과 같다.
+\begin{equation}
+  p(x\mid\mu,\alpha,\beta)=\frac{\beta}{2\alpha\,\Gamma(1/\beta)}\exp\!\Big\{-\Big(\frac{|x-\mu|}{\alpha}\Big)^{\beta}\Big\}.
+\end{equation}
+표준편차는 $\sigma=\alpha\sqrt{\Gamma(3/\beta)/\Gamma(1/\beta)}$이고, 초과첨도는 $\beta$ 하나로 정해진다.
+\begin{equation}\label{eq:kurt}
+  \kappa(\beta)=\frac{\Gamma(5/\beta)\,\Gamma(1/\beta)}{\Gamma(3/\beta)^2}-3 .
+\end{equation}
+$\beta=2$이면 Gaussian($\kappa=0$), $\beta=1$이면 Laplace($\kappa=3$)이고, $\beta\to\infty$이면 균등분포($\kappa\to-1.2$)에 가까워진다.
+따라서 $\beta$를 추정하는 것은 곧 첨도를 추정하는 것이다.
+
+\emph{비유.} 성분 하나를 산 하나로 생각하면, $\mu$는 산의 위치, $\alpha$는 산의 폭, $\beta$는 산의 모양이다. $\beta$가 작으면 뾰족한 바위산이고 $\beta$가 크면 평평한 고원이다.
+
+\subsection{재매개화와 혼합모형}
+$\tau=\alpha^{-\beta}$로 두면 밀도는
+\begin{equation}
+  p(x\mid\mu,\tau,\beta)=\frac{\beta\,\tau^{1/\beta}}{2\Gamma(1/\beta)}\exp\{-\tau|x-\mu|^{\beta}\}
+\end{equation}
+이 된다. $\tau$에 대해서는 $\tau^{1/\beta}e^{-\tau(\cdot)}$ 꼴이므로 Gamma 분포와 켤레다(\S\ref{sec:mstep}).
+
+데이터는 내부적으로 $z=(x-m)/s$로 표준화한다. $m$은 평균, $s$는 표준편차다. 이렇게 하면 $|z-\mu|^{\beta}$의 크기가 $\beta$에 크게 좌우되지 않는다.
+
+혼합모형은 다음과 같다($k=1,\dots,K_{\max}$).
+\begin{align}
+  v_k &\sim \Be(1,\gamma), \qquad \pi_k = v_k\textstyle\prod_{j<k}(1-v_j), \label{eq:stick}\\
+  c_n\mid\pi &\sim \mathrm{Cat}(\pi), \qquad
+  \tau_k\mid\beta_k \sim \Ga\big(a_0,\ b_0(\beta_k)\big),\qquad b_0(\beta)=a_0\,c^{\beta},\\
+  z_n\mid c_n=k &\sim \mathrm{GGD}(\mu_k,\tau_k,\beta_k).
+\end{align}
+
+\emph{비유(stick-breaking).} 길이 1인 막대를 앞사람부터 차례로 잘라 간다. 앞 성분들이 데이터를 많이 맡아 막대를 많이 가져가면, 뒤 성분 몫은 거의 남지 않는다. $\gamma$가 작을수록 ``적은 수의 성분만 쓰라''는 압력이 강해진다.
+
+\emph{척도 사전.} $b_0(\beta)=a_0c^{\beta}$로 두면 $\E[\tau]=c^{-\beta}$, 즉 ``$\alpha$의 사전 추측값은 $c$''가 되고, 이 뜻은 $\beta$와 관계없이 같다.
+반대로 $b_0$를 상수로 두면, 좁은 성분에서 데이터 쪽 값 $S_k$(아래 식~\eqref{eq:S})가 $b_0$보다 몇 자리 작아져 사전에 묻힌다. 실제로 참값 $\beta=8$인 성분이 $1.9$로 추정되었다.
+
+\subsection{근사 분포}
+평균장 분해를 쓴다.
+\begin{gather}
+  q=\prod_k q(v_k)\prod_k q(\tau_k)\prod_n q(c_n),\\
+  q(v_k)=\Be(\gamma_{1k},\gamma_{2k}),\qquad q(\tau_k)=\Ga(a_k,b_k),\qquad q(c_n)=\mathrm{Cat}(r_n).
+\end{gather}
+$\mu_k$와 $\beta_k$는 분포 없이 점추정한다. 따라서 이 방법은 부분적으로 베이지안인 VB-EM이다.
+ELBO $\mathcal{L}$은 $\log p(X\mid\mu,\beta)$의 하한이다.
+
+%======================================================================
+\section{추론: 좌표 상승 변분 추론}
+
+ELBO는 다음과 같다.
+\begin{align}
+  \mathcal{L}&=\E_q[\log p(z,c,v,\tau\mid\mu,\beta)]-\E_q[\log q]\nonumber\\
+  &=\underbrace{\textstyle\sum_{n,k}r_{nk}\E[\log p(z_n\mid k)]}_{\text{설명력}}
+   -\underbrace{\mathrm{KL}\text{ 항들}}_{\text{복잡도 벌점}}+\text{(책임도 엔트로피)}.
+\end{align}
+매 반복마다 아래 블록을 차례로 갱신한다. 각 블록은 다른 블록을 고정한 채 $\mathcal{L}$을 최대화하거나, 적어도 줄이지 않는다.
+
+\emph{비유.} 등산객이 동서와 남북 방향을 번갈아 가며 한 걸음씩 오르는 것과 같다(좌표 상승). 높이(ELBO)는 절대 내려가지 않는다.
+
+\subsection{E-step: 책임도}
+\begin{align}
+  \log\rho_{nk}&=\E[\log\pi_k]+\log\beta_k-\log2-\log\Gamma(1/\beta_k)
+     +\frac{\psi(a_k)-\log b_k}{\beta_k}-\frac{a_k}{b_k}|z_n-\mu_k|^{\beta_k},\\
+  r_{nk}&=\rho_{nk}\big/\textstyle\sum_j\rho_{nj},\\
+  \E[\log\pi_k]&=\psi(\gamma_{1k})-\psi(\gamma_{1k}+\gamma_{2k})+\textstyle\sum_{j<k}\big[\psi(\gamma_{2j})-\psi(\gamma_{1j}+\gamma_{2j})\big].
+\end{align}
+여기서 $\psi$는 digamma 함수이고, $\E[\log\tau]=\psi(a)-\log b$, $\E[\tau]=a/b$이다.
+
+\emph{비유.} 각 데이터 점이 성분마다 ``나는 너에게 몇 \% 속한다''고 투표한다. 투표율이 $r_{nk}$다.
+
+\subsection{M-step}\label{sec:mstep}
+$N_k=\sum_n r_{nk}$로 둔다.
+
+\paragraph{(1) 가중치(BGM과 동일).}
+$\gamma_{1k}=1+N_k$, $\gamma_{2k}=\gamma+\sum_{j>k}N_j$.
+
+\paragraph{(2) 척도: Gamma 켤레, 닫힌꼴.}
+$\mu,\beta$를 고정하면 $\prod_n p(z_n\mid\tau_k)^{r_{nk}}\propto\tau_k^{N_k/\beta_k}\exp(-\tau_kS_k)$이고, 이는 Gamma 커널이다. 따라서
+\begin{equation}\label{eq:S}
+  S_k=\sum_n r_{nk}|z_n-\mu_k|^{\beta_k},\qquad a_k=a_0+\frac{N_k}{\beta_k},\qquad b_k=b_0(\beta_k)+S_k.
+\end{equation}
+$\beta=2$이면 $S_k$는 가중 제곱합이 되어, BGM의 분산 갱신과 같은 식이다.
+
+\paragraph{(3) 축약 목적함수.}
+$q(\tau_k)$를 최적값으로 두고 $\tau_k$를 적분하면, 성분 $k$의 ELBO 기여분은 $\mu,\beta$만의 함수가 된다.
+\begin{equation}\label{eq:F}
+\begin{split}
+  F_k(\mu,\beta)={}&N_k\big[\log\beta-\log2-\log\Gamma(1/\beta)\big]+a_0\log b_0(\beta)-\log\Gamma(a_0)\\
+  &+\log\Gamma(a_k)-a_k\log\big(b_0(\beta)+S_k(\mu,\beta)\big).
+\end{split}
+\end{equation}
+
+\paragraph{(4) 위치 $\mu$.}
+$\beta$를 고정하면 $a_k$는 $\mu$와 무관하므로, $F_k$를 최대화하는 것은 $S_k$를 최소화하는 것과 같다.
+\begin{equation}
+  \mu_k=\arg\min_{\mu}\sum_n r_{nk}|z_n-\mu|^{\beta_k}.
+\end{equation}
+$\beta=2$이면 가중평균, $\beta=1$이면 가중중앙값이고, 그 밖에는 1차원 Brent 탐색으로 구한다.
+
+\paragraph{(5) 형상 $\beta$.}
+$\mu$를 고정하고 $\log\beta$ 공간에서 $F_k$를 최대화한다.
+\begin{equation}
+  \beta_k=\arg\max_{\beta\in[0.3,\,10]}F_k(\mu_k,\beta).
+\end{equation}
+계산은 bounded Brent 탐색으로 한다. 한 번의 M-step에서는 현재 $\beta$의 $1/2$배에서 $2$배 사이만 탐색한다.
+
+\paragraph{(6) 수락 규칙.}
+(4)와 (5)는 $F_k$가 실제로 커질 때만 새 값을 받아들인다. 그래서 수치 탐색을 써도 ELBO가 줄지 않는다.
+
+\emph{비유.} 투표 결과를 보고 각 산(성분)이 자기 위치·폭·모양을 다시 맞춘다. 폭은 공식으로 바로 계산되고(켤레), 위치와 모양은 조금씩 움직여 보며 더 나은 쪽을 고른다.
+
+\subsection{ELBO와 단조성}
+M-step 직후에는 많은 항이 서로 지워져서, ELBO가 다음처럼 간단해진다.
+\begin{equation}
+  \mathcal{L}=\sum_kF_k-\sum_{n,k}r_{nk}\log r_{nk}+\sum_k\big[\log B(\gamma_{1k},\gamma_{2k})-\log B(1,\gamma)\big]-N\log s .
+\end{equation}
+마지막 항 $-N\log s$는 표준화를 되돌리는 야코비안이다.
+E-step은 $q(c)$에 대한 정확한 최대화이고, (1)·(2)도 정확한 최대화이며, (4)·(5)는 개선될 때만 받아들인다. 따라서 $\mathcal{L}$은 반복마다 줄지 않는다.
+수치로도 이 축약식이 전체 ELBO와 $10^{-12}$ 이내로 같음을 확인했다.
+
+\begin{proposition}[BGM으로의 환원]\label{prop:bgm}
+$\beta_k\equiv2$로 고정하고, 척도 사전을 $a_0=\nu_0/2=1/2$, $b_0=\widehat{\mathrm{Var}}(z)$(상수)로 두자. 또 BGM의 평균 정밀도 사전 $\kappa_0\to0$이라 하자.
+그러면 같은 책임도에서 VGGMM의 M-step은 BGM의 M-step과 같다.
+E-step 점수는 정확히 $1/(2\kappa_k)$만큼 차이 난다($\kappa_k=\kappa_0+N_k$). 이 차이는 BGM이 $\mu$에 사후분포를 두기 때문에 생기는 분산항이다.
+\end{proposition}
+수치 확인 결과, 평균·분산의 차이는 $10^{-14}$ 수준이었고, 점수 차이에서 $1/(2\kappa_k)$를 뺀 나머지는 $10^{-14}$ 이하였다.
+
+%======================================================================
+\section{구조 이동: 성분 수를 데이터가 정하게 하기}
+
+\paragraph{문제.}
+위 좌표 상승만 쓰면 국소 최적에 갇힌다. 예를 들어 한 덩어리를 두 성분이 반씩 맡으면, 둘 다 $N_k$가 커서 가중치가 줄어들 압력이 생기지 않는다.
+실제로 이동 없이 학습하면 유효 성분 수가 $K_{\max}=10,20,30$에서 $10,19,28$이었다.
+반면 참 라벨로 시작한 5성분 해의 ELBO는 kmeans로 시작한 10성분 해보다 $63$ 높았다. 즉 \emph{목적함수}는 이미 5성분을 선호하고, 문제는 \emph{최적화}였다.
+
+\paragraph{이동의 정의.}
+현재 상태에서 다음 세 가지 후보를 만든다.
+\begin{itemize}
+  \item \textbf{재정렬:} $N_k$가 큰 순서로 성분 순서를 바꾼다. stick-breaking에서는 큰 성분이 앞에 있을 때 ELBO가 높다.
+  \item \textbf{병합:} 평균 순서상 이웃한 성분 $i,j$의 책임도를 $r_{\cdot i}\leftarrow r_{\cdot i}+r_{\cdot j}$, $r_{\cdot j}\leftarrow0$으로 합친다.
+  \item \textbf{삭제:} 성분 $j$를 빼고, 나머지 성분의 점수로 책임도를 다시 정규화한다.
+\end{itemize}
+병합과 삭제 뒤에는 재정렬을 함께 하고, 바뀐 성분의 $\beta$는 2에서 다시 시작한다.
+
+\paragraph{수락 규칙.}
+이동 없이 $T$번 더 학습한 ELBO를 $\mathcal{L}_{\mathrm{ctrl}}$(대조군)이라 하고, 이동 후 $T$번 학습한 ELBO를 $\mathcal{L}_{\mathrm{cand}}$라 하자. 다음일 때만 이동을 받아들인다.
+\begin{equation}
+  \mathcal{L}_{\mathrm{cand}}>\mathcal{L}_{\mathrm{ctrl}}+\delta N \qquad (T=20,\ \delta=10^{-4}).
+\end{equation}
+후보 순서는 다음과 같다.
+\begin{enumerate}
+  \item 재정렬
+  \item 겹침 $O_{ij}=\sum_n\sqrt{r_{ni}r_{nj}}\big/\sqrt{N_iN_j}$이 큰 이웃 병합 3개
+  \item 가중치가 작은 성분 삭제 3개
+  \item 위 후보가 모두 실패하면, 나머지 이웃 병합과 삭제 전부
+\end{enumerate}
+처음 받아들여진 이동에서 라운드를 다시 시작하고, 받아들여지는 이동이 없으면 탐색을 끝낸 뒤 수렴할 때까지 좌표 상승을 이어 간다.
+
+\paragraph{후처리가 아닌 이유.}
+모든 이동은 같은 목적함수 $\mathcal{L}$을 올릴 때만 받아들여진다. 또 이동 뒤에도 같은 좌표 상승을 계속한다. 따라서 이동은 ``더 높은 국소 최적으로 옮겨 가는 최적화 단계''이다.
+참 성분 수 같은 외부 정보는 어디에도 쓰지 않는다.
+다만 \emph{어떤 후보를 시도할지} 고르는 규칙은 경험적이다. 비슷한 접근으로 Hughes \& Sudderth(2013)의 merge/delete 이동과 Kurihara 외(2007)의 크기순 재정렬이 있다.
+
+\emph{비유.} 등산객이 작은 봉우리에 갇혔을 때, 이웃 능선으로 건너가 잠깐 올라가 본다. 원래 자리에서 같은 시간만큼 오른 것보다 더 높을 때만 그쪽으로 옮긴다.
+
+%======================================================================
+\section{전처리기: 정규화와 역변환}
+
+\paragraph{대표값.}
+원래 단위로 되돌린 값은 다음과 같다.
+\[
+\hat\mu_k=m+s\mu_k,\qquad \hat\alpha_k=s\,(b_k/a_k)^{1/\beta_k},\qquad \hat\sigma_k=\hat\alpha_k\sqrt{\Gamma(3/\beta_k)/\Gamma(1/\beta_k)}.
+\]
+이는 ``정밀도의 사후평균을 대입''하는 규칙으로, BGM의 \texttt{covariances\_}$=1/\E[\lambda]$와 같은 규칙이다.
+
+\paragraph{분위수 반폭.}
+$X\sim\mathrm{GGD}(\mu,\alpha,\beta)$이면 $Y=(|X-\mu|/\alpha)^{\beta}\sim\Ga(1/\beta,1)$이다. 따라서 확률 $1-\varepsilon$이 들어가는 반폭은
+\begin{equation}
+  h_k=\hat\alpha_k\Big[P^{-1}\big(1/\beta_k,\,1-\varepsilon\big)\Big]^{1/\beta_k},\qquad \varepsilon=10^{-4}
+\end{equation}
+이다. $P^{-1}$은 정규화 하위 불완전감마함수의 역함수다. $\beta=2$이면 $h=3.89\sigma$가 되므로, rdt의 ``$4\sigma$ = 99.99\%'' 규칙을 모든 $\beta$로 넓힌 것이다.
+
+\paragraph{변환과 역변환.}
+성분은 rdt와 같은 방식으로 고른다. 확률 $r_{nk}+10^{-6}$에 비례해 $k$를 뽑는다.
+변환은 $u=\mathrm{clip}\big((x-\hat\mu_k)/h_k,\ \pm0.99\big)$이고, 역변환은 $x=\mathrm{clip}(u,\pm1)\,h_k+\hat\mu_k$이다.
+
+\emph{비유.} 성분마다 자의 눈금 길이를 그 산의 모양에 맞춘다. 뾰족한 산에는 긴 자를, 평평한 산에는 짧은 자를 쓴다.
+
+\paragraph{디퀀타이즈.}
+값이 모두 정수인 열은 연속 밀도로 적합하면 문제가 생긴다. 한 정수값에 성분이 붕괴하면 우도가 무한대로 발산하기 때문이다. 실제로 $\beta\to0.3$, $\alpha\approx10^{-16}$인 점질량 성분이 생겼다.
+그래서 학습과 변환에서는 $\tilde x=x+U$, $U\sim\mathrm{Unif}(-\tfrac12,\tfrac12)$을 쓰고, 역변환에서는 반올림한다.
+정수 $x$의 확률은 $P(x)=\int_{x-1/2}^{x+1/2}p(t)\,dt$이므로, Jensen 부등식에 의해 $\E_U[\log p(x+U)]\le\log P(x)$이다(Theis 외, 2016).
+
+\emph{비유.} 정수 눈금마다 폭 1짜리 칸을 고르게 채워서, 점들을 매끄러운 면으로 바꾼다.
+
+%======================================================================
+\section{알고리즘 전체}
+
+\noindent\textbf{입력:} 열 $x_{1:N}$, $K_{\max}$. \quad \textbf{출력:} $\{\hat\pi_k,\hat\mu_k,\hat\alpha_k,\beta_k,h_k\}$, 유효 성분, 정규화된 $(u,k)$.
+\begin{enumerate}
+  \item 값이 모두 정수이면 디퀀타이즈한다. 그다음 $z=(x-m)/s$로 표준화한다.
+  \item kmeans로 초기 책임도 $r$을 만든다(BGM과 같음). 초기값은 $\beta_k=2$이고, M-step을 한 번 한다.
+  \item E-step과 M-step(가중치 $\to$ $\mu$ $\to$ $\beta$ $\to$ $\tau$)을 반복한다. $|\Delta\mathcal{L}|<10^{-3}$이거나 100회가 되면 멈춘다.
+  \item 구조 이동 탐색을 한다(\S5). 받아들여지는 이동이 없을 때까지 라운드를 반복한다.
+  \item 수렴할 때까지 3단계를 다시 반복한다.
+  \item $\hat\pi_k=\E[v_k]\prod_{j<k}(1-\E[v_j])$를 정규화하고, $\hat\pi_k>0.005$인 성분을 유효로 표시한다. $h_k$를 계산한다.
+  \item 정규화와 역변환은 \S6을 따른다.
+\end{enumerate}
+
+%======================================================================
+\section{BGM과의 흐름 비교}
+
+\begin{center}
+\small
+\begin{tabular}{p{2.6cm}p{5.4cm}p{5.6cm}}
+\toprule
+단계 & BGM (sklearn / rdt) & VGGMM \\
+\midrule
+입력 처리 & 원래 단위 그대로 & 표준화, 정수 열은 디퀀타이즈 \\
+초기화 & kmeans 책임도 & 같음 \\
+가중치 & DP stick-breaking, $q(v)$=Beta & 같음 \\
+성분 분포 & Gaussian & GGD (형상 $\beta$) \\
+척도 사후 & Wishart(1차원: Gamma), $\lambda$ & Gamma, $\tau=\alpha^{-\beta}$ \\
+위치 & Normal 사후 $q(\mu)$ & 점추정 (가중 $L_\beta$ 중심) \\
+형상 & $2$로 고정 & 추정 ($F_k$ 최대화) \\
+E-step 점수 & Gaussian 기대 로그밀도 & GGD 기대 로그밀도 \\
+ELBO & Gaussian·Wishart & GGD·Gamma, 축약식 $\sum F_k$ \\
+구조 탐색 & 없음 & 병합·삭제·재정렬 (ELBO 검증) \\
+대표 폭 & $\sigma=\E[\lambda]^{-1/2}$ & 같은 규칙, $\hat\sigma_k$ \\
+정규화 폭 & $4\sigma$ & $h_k$ (99.99\% 분위수) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{center}
+\small
+\begin{tabular}{p{3.6cm}p{4.6cm}p{5.4cm}}
+\toprule
+개선점 & 해결한 한계 & 근거 (\S\ref{sec:evidence}) \\
+\midrule
+GGD 성분과 $\beta$ 추정 & Gaussian 가정 & 비정규 시나리오에서 KL이 BGM보다 15--25배 작음. $\beta$ 복원 오차 3\% 이내 \\
+구조 이동 & 성분 수가 $K_{\max}$를 따라감 & 유효 성분 수: 이동 없이 $10/19/28$, 이동 있으면 $5/5/5$ \\
+$h_k$ 정규화 & $4\sigma$ 클리핑 & $\beta=0.5$에서 잘림 비율 1.14\% $\to$ 0.03\% \\
+디퀀타이즈 & 정수 열의 점질량 & 점질량 성분 $18\to0$개, 역변환 정확도 100\% \\
+명제~\ref{prop:bgm} & 정당성 검증 & sklearn과 $10^{-14}$ 수준으로 일치 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+%======================================================================
+\section{신경망과의 관계}
+
+VGGMM은 신경망이 아니며, 경사하강법이나 역전파도 쓰지 않는다. 학습은 확률모형의 좌표 상승 변분 추론이다.
+신경망 학습에 익숙한 독자를 위해 대응 관계를 정리하면 다음과 같다.
+
+\begin{center}
+\small
+\begin{tabular}{p{4.2cm}p{9.4cm}}
+\toprule
+신경망 용어 & VGGMM에서 해당하는 것 \\
+\midrule
+손실함수 & $-\mathcal{L}$ (음의 ELBO) \\
+순전파 & E-step: 현재 모수로 책임도 $r$ 계산 \\
+가중치 갱신 & M-step: 닫힌꼴(가중치, $\tau$)과 1차원 탐색($\mu,\beta$). 학습률이 없다 \\
+손실 단조 감소 & ELBO 단조 증가가 구조적으로 보장됨 \\
+정규화(regularization) & 사전분포의 KL 항, stick-breaking의 $\gamma$ \\
+구조 탐색 / 가지치기 & 병합·삭제 이동 (ELBO로 검증) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+CTGAN의 신경망과 만나는 지점은 전처리의 출력 $(u,\ \text{one-hot}(k))$이다. VGGMM은 생성기가 학습할 \emph{표현}을 바꿀 뿐, GAN 구조나 학습 방법은 바꾸지 않는다.
+
+%======================================================================
+\section{하이퍼파라미터}
+
+\begin{center}
+\small
+\begin{tabular}{p{3.4cm}p{1.7cm}p{8.4cm}}
+\toprule
+이름 & 기본값 & 의미와 근거 \\
+\midrule
+$K_{\max}$ & 10 & 성분 수 상한 (rdt 기본값) \\
+$\gamma$ & 0.001 & stick-breaking 집중 모수 (rdt 기본값) \\
+$a_0$ & 0.5 & $\tau$ 사전 shape. sklearn의 $\nu_0=1$에 해당 \\
+$c$ & 0.1 & 표준화 단위에서 $\alpha$의 사전 추측값. 인공 데이터에서 $\beta$ 복원을 보고 선택 \\
+$\beta$ 범위 & $[0.3,10]$ & 수치 안정 범위 \\
+$\beta$ 초기값 & 2 & Gaussian에서 시작 \\
+$N_{\min}$ & 5 & $N_k$가 이보다 작으면 $\beta$를 갱신하지 않음 \\
+$T$ & 20 & 이동 후보 하나당 학습 반복 수 \\
+$\delta$ & $10^{-4}$ & 이동 수락 문턱 (표본당 ELBO 증가량) \\
+후보 수 & 3+3 & 우선 시도할 병합·삭제 후보 수 \\
+수렴 기준 & $10^{-3}$, 100회 & sklearn 기본값 \\
+$\varepsilon$ & $10^{-4}$ & 정규화 폭의 꼬리 확률 (rdt의 99.99\% 의도) \\
+유효 문턱 & 0.005 & rdt 기본값 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+%======================================================================
+\section{실험 근거}\label{sec:evidence}
+
+환경은 sklearn 1.9.1, scipy 1.18.1, numpy 2.5.4, rdt 2.1.0이다. 표시가 없는 항목은 연구자 PC에서 재현했다. $^\dagger$는 개발 환경에서만 측정한 결과로, 재현을 기다리는 중이다.
+
+\begin{enumerate}
+  \item \textbf{BGM 환원(명제~\ref{prop:bgm}).}
+    \begin{itemize}
+      \item M-step 차이: $1.5\times10^{-14}$
+      \item E-step 점수 차이에서 $1/(2\kappa_k)$를 뺀 나머지: $6.7\times10^{-15}$
+      \item 20회 반복 후: 가중치 차이 $3.9\times10^{-4}$, 평균 차이 $0.0036\sigma$
+      \item ELBO 감소: 0회
+    \end{itemize}
+  \item \textbf{$\beta$ 복원.} 성분 1개, $N=10^4$에서 참값 $0.5$, $1$, $2$, $4$, $8$에 대해 추정값은 $0.503$, $0.989$, $1.989$, $3.964$, $7.764$였다.
+  \item \textbf{성분 수(GGD 5개 혼합, $\beta=0.8,1,2,4,8$).}
+    \begin{itemize}
+      \item $K_{\max}=10,20,30$ 모두 유효 성분 5개, 같은 ELBO($-28{,}690.36$)
+      \item 추정 $\beta$: $0.86,1.03,2.14,3.89,8.52$
+      \item 평가 로그우도: VGGMM $-2.8607$, 참 밀도 $-2.8596$, BGM $-2.888$
+    \end{itemize}
+  \item \textbf{정규화.} 단일 GGD에서 rdt BGM은 성분을 9--10개 썼다. $4\sigma$ 잘림 비율은 $\beta=0.5$에서 1.14\%, $\beta=1$에서 0.35\%였고, $h_k$는 0.03\% 이하였다.
+  \item \textbf{adult(디퀀타이즈, $K_{\max}=10$).} 연속 열 6개 모두 평가 로그우도가 BGM 이상이었고, 성분 수는 5개 열에서 같거나 적었다.
+  \item \textbf{adult, $K_{\max}=10/20/30$$^\dagger$.}
+    \begin{itemize}
+      \item age 유효 성분: BGM $10/19/28$, VGGMM $5/4/5$
+      \item VGGMM이 $K_{\max}$를 그대로 따라가는 열은 없었다
+      \item 반복값이 많은 정수 열(hours-per-week, capital-gain)은 $K_{\max}$를 늘릴수록 성분 수가 늘었고, ELBO와 로그우도도 함께 개선되었다
+    \end{itemize}
+  \item \textbf{체계적 비교$^\dagger$.} 5개 시나리오 $\times$ $N\in\{10^3,5\cdot10^3,2\cdot10^4\}$ $\times$ 시드 3개, KL은 참 분포 기준이다.
+    \begin{itemize}
+      \item 꼬리가 두꺼운 혼합, 평평한 혼합, 섞인 혼합: VGGMM 승률 100\%, KL 비율(BGM/VGGMM) 중앙값 15--25
+      \item 정규 혼합: 평균 KL은 BGM 0.0031, VGGMM 0.0038로 허용 범위 안이며, $N\ge5000$에서는 VGGMM이 더 낮음
+    \end{itemize}
+  \item \textbf{디퀀타이즈.}
+    \begin{itemize}
+      \item 디퀀타이즈 끔: 점질량 성분이 열별로 $[1,0,8,2,1,6]$개
+      \item 디퀀타이즈 켬: 0개, 역변환으로 원래 정수를 100\% 복원
+    \end{itemize}
+  \item \textbf{속도.} 최적화 후 1.72--1.86배 빨라졌지만, 여전히 BGM보다 약 10--20배 느리다.
+\end{enumerate}
+
+%======================================================================
+\section{한계와 후속 연구}
+\begin{itemize}
+  \item \textbf{소표본.} $N=1000$에서 정규 혼합(KL 0.0103 대 0.0073)과 많이 겹친 혼합(0.0190 대 0.0127)은 BGM보다 나빴다. 겹친 혼합에서는 2성분으로 과소적합했다. 후보 해결책은 $\beta$에 약한 사전을 두는 것(MAP)이다.
+  \item \textbf{부분 베이지안.} $\mu,\beta$를 점추정하므로 이 둘의 불확실성을 표현하지 못하고, 오컴 벌점도 약하다. 대안으로 $\beta$를 이산 격자 위의 사후분포로 두는 방법이 있다.
+  \item \textbf{이동 후보 선택.} 수락 기준은 원리적이지만, 어떤 후보를 시도할지 고르는 규칙은 경험적이다. 최종 해도 $K_{\max}$에 따라 조금 달라진다(예: fnlwgt $6/7/9$).
+  \item \textbf{이산값 열.} 반복값이 많은 정수 열에서는 성분 수가 $K_{\max}$와 함께 늘 수 있다. 자주 나오는 값을 별도 범주로 떼어 내는 방법을 검토할 수 있다.
+  \item \textbf{속도.} 뉴턴형 갱신이나 컴파일(numba 등)이 필요하다.
+  \item \textbf{선택의 투명성.}
+    \begin{itemize}
+      \item $c=0.1$은 같은 인공 데이터에서 골랐다.
+      \item BGM 일치 검사 중 장기 반복 비교는 20회 시점 비교로 바꿨다. 1/(2$\kappa_k$) 차이가 반복마다 누적되기 때문이다.
+    \end{itemize}
+\end{itemize}
+
+%======================================================================
+\begin{thebibliography}{99}\small
+\bibitem{bishop} C.~M. Bishop. \emph{Pattern Recognition and Machine Learning}. Springer, 2006. (10장, 변분 Gaussian 혼합)
+\bibitem{sethuraman} J.~Sethuraman. A constructive definition of Dirichlet priors. \emph{Statistica Sinica}, 4:639--650, 1994.
+\bibitem{blei} D.~M. Blei and M.~I. Jordan. Variational inference for Dirichlet process mixtures. \emph{Bayesian Analysis}, 1(1):121--143, 2006.
+\bibitem{kurihara} K.~Kurihara, M.~Welling, and N.~Vlassis. Accelerated variational Dirichlet process mixtures. \emph{NIPS 19}, 2007.
+\bibitem{hughes} M.~C. Hughes and E.~B. Sudderth. Memoized online variational inference for Dirichlet process mixture models. \emph{NIPS 26}, 2013.
+\bibitem{ctgan} L.~Xu, M.~Skoularidou, A.~Cuesta-Infante, and K.~Veeramachaneni. Modeling tabular data using conditional GAN. \emph{NeurIPS 32}, 2019.
+\bibitem{nadarajah} S.~Nadarajah. A generalized normal distribution. \emph{Journal of Applied Statistics}, 32(7):685--694, 2005.
+\bibitem{theis} L.~Theis, A.~van den Oord, and M.~Bethge. A note on the evaluation of generative models. \emph{ICLR}, 2016.
+\bibitem{sklearn} F.~Pedregosa et al. Scikit-learn: Machine learning in Python. \emph{JMLR}, 12:2825--2830, 2011.
+\end{thebibliography}
+
+\end{document}
