@@ -362,7 +362,7 @@ $\varepsilon$ & $10^{-4}$ & 정규화 폭의 꼬리 확률 (rdt의 99.99\% 의�
 %======================================================================
 \section{실험 근거}\label{sec:evidence}
 
-환경은 sklearn 1.9.1, scipy 1.18.1, numpy 2.5.4, rdt 2.1.0이다. 표시가 없는 항목은 연구자 PC에서 재현했다. $^\dagger$는 개발 환경에서만 측정한 결과로, 재현을 기다리는 중이다.
+환경은 sklearn 1.9.1, scipy 1.18.1, numpy 2.5.4, rdt 2.1.0이다. 표시가 없는 항목은 연구자 PC(Windows)와 개발 환경(Linux) 두 곳에서 같은 수치로 재현되었다. $^\dagger$는 개발 환경에서만 측정한 결과다.
 
 \begin{enumerate}
   \item \textbf{BGM 환원(명제~\ref{prop:bgm}).}
@@ -381,13 +381,15 @@ $\varepsilon$ & $10^{-4}$ & 정규화 폭의 꼬리 확률 (rdt의 99.99\% 의�
     \end{itemize}
   \item \textbf{정규화.} 단일 GGD에서 rdt BGM은 성분을 9--10개 썼다. $4\sigma$ 잘림 비율은 $\beta=0.5$에서 1.14\%, $\beta=1$에서 0.35\%였고, $h_k$는 0.03\% 이하였다.
   \item \textbf{adult(디퀀타이즈, $K_{\max}=10$).} 연속 열 6개 모두 평가 로그우도가 BGM 이상이었고, 성분 수는 5개 열에서 같거나 적었다.
-  \item \textbf{adult, $K_{\max}=10/20/30$$^\dagger$.}
+  \item \textbf{adult, $K_{\max}=10/20$ (30은 $^\dagger$).}
     \begin{itemize}
-      \item age 유효 성분: BGM $10/19/28$, VGGMM $5/4/5$
-      \item VGGMM이 $K_{\max}$를 그대로 따라가는 열은 없었다
-      \item 반복값이 많은 정수 열(hours-per-week, capital-gain)은 $K_{\max}$를 늘릴수록 성분 수가 늘었고, ELBO와 로그우도도 함께 개선되었다
+      \item BGM은 세 열에서 유효 성분 수가 $K_{\max}$를 따라 늘었다: age $10\to19$($28^\dagger$), education-num $10\to17$, fnlwgt $8\to17$.
+      \item VGGMM은 같은 열에서 age $5\to4$($5^\dagger$), education-num $9\to13$, fnlwgt $6\to7$이었다.
+      \item VGGMM이 $K_{\max}$를 따라 늘어난 열은 hours-per-week 하나였다($10\to18$, $K_{\max}=30$에서 $20^\dagger$로 포화).
+      \item 이 열은 40, 50, 60시간처럼 반복되는 정수값이 많다. 성분이 늘 때 평가 로그우도도 $-2.746\to-2.556$으로 크게 좋아졌다.
+      \item 6개 열, 두 $K_{\max}$ 모두에서 VGGMM의 평가 로그우도가 BGM보다 높았다.
     \end{itemize}
-  \item \textbf{체계적 비교$^\dagger$.} 5개 시나리오 $\times$ $N\in\{10^3,5\cdot10^3,2\cdot10^4\}$ $\times$ 시드 3개, KL은 참 분포 기준이다.
+  \item \textbf{체계적 비교.} 5개 시나리오 $\times$ $N\in\{10^3,5\cdot10^3,2\cdot10^4\}$ $\times$ 시드 3개, KL은 참 분포 기준이다.
     \begin{itemize}
       \item 꼬리가 두꺼운 혼합, 평평한 혼합, 섞인 혼합: VGGMM 승률 100\%, KL 비율(BGM/VGGMM) 중앙값 15--25
       \item 정규 혼합: 평균 KL은 BGM 0.0031, VGGMM 0.0038로 허용 범위 안이며, $N\ge5000$에서는 VGGMM이 더 낮음
