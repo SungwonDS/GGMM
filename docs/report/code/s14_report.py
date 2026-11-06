@@ -118,7 +118,8 @@ def run_synthetic():
                     if n == 5000 and seed == 0:
                         fitted[(name, method)] = m
                 print(f"[synth] {name:24s} n={n:5d} seed={seed}  KL BGM={rows[-2]['KL']:.4f} "
-                      f"VGGMM={rows[-1]['KL']:.4f}  K {rows[-2]['K']}/{rows[-1]['K']}", flush=True)
+                      f"VGGMM={rows[-1]['KL']:.4f}  K {rows[-2]['K']}/{rows[-1]['K']}  "
+                      f"time {rows[-2]['fit_s']:.1f}s/{rows[-1]['fit_s']:.1f}s", flush=True)
     df = pd.DataFrame(rows)
     df.to_csv(OUT / "synth_runs.csv", index=False)
 
@@ -190,7 +191,8 @@ def run_real():
                 if seed == 0:
                     fitted[(name, method)] = (m, x_tr)
             print(f"[real] {name:30s} seed={seed}  ll BGM={rows[-2]['test_ll']:.4f} "
-                  f"VGGMM={rows[-1]['test_ll']:.4f}  K {rows[-2]['K']}/{rows[-1]['K']}", flush=True)
+                  f"VGGMM={rows[-1]['test_ll']:.4f}  K {rows[-2]['K']}/{rows[-1]['K']}  "
+                  f"time {rows[-2]['fit_s']:.1f}s/{rows[-1]['fit_s']:.1f}s", flush=True)
     df = pd.DataFrame(rows)
     df.to_csv(OUT / "real_runs.csv", index=False)
 
